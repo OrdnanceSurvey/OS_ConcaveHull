@@ -33,9 +33,9 @@
  * 
  * Author: Sheng Zhou (Sheng.Zhou@os.uk)
  * 
- * version 0.4
+ * version 0.5
  * 
- * Date: 2019-01-31
+ * Date: 2019-04-24
  * 
  * Copyright (C) 2019 Ordnance Survey
  *
@@ -75,10 +75,16 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.triangulate.DelaunayTriangulationBuilder;
 import org.locationtech.jts.triangulate.quadedge.QuadEdge;
 import org.locationtech.jts.triangulate.quadedge.QuadEdgeSubdivision;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
+
+import uk.osgb.algorithm.concavehull.ConcaveHullJTS.HullEdgeCir;
+import uk.osgb.datastructures.DLCirList;
+import uk.osgb.datastructures.DLNode;
+
 import org.locationtech.jts.operation.union.UnaryUnionOp;
 
 public class ConcaveHull {
@@ -373,6 +379,7 @@ public class ConcaveHull {
 			Vector<DLCirList> rltHulls = new Vector<DLCirList>(); // finished hulls
 			
 			Vector<LineString> rltLS = new Vector<LineString>();
+			Vector<Point> rltPt = new Vector<Point>();
 			
 			TreeSet<HullEdgeCir> edgeIdx = new TreeSet<HullEdgeCir>();
 			
@@ -386,6 +393,7 @@ public class ConcaveHull {
 				hull = hulls.pollFirst();
 				generateHullIndices(hull, coordNodeMap, edgeIdx, nodeEdgeMap);
 				boolean addHull = true;
+				int edgeCnt = edgeIdx.size();
 				while(!edgeIdx.isEmpty()) {
 					HullEdgeCir edge = edgeIdx.pollLast(); // the longest
 					
@@ -399,49 +407,51 @@ public class ConcaveHull {
 						return null;
 					}
 					QuadEdge lnext = qe.lNext();
-					Vertex verO = lnext.dest();
+					Vertex verO = lnext.dest(); // "opposite" vertex
 					Coordinate nodeO = verO.getCoordinate();
 					if(triChecker.removeable(nodeS, nodeE, nodeO)) {
 						if(hull.size() >3) {
 							if(coordNodeMap.containsKey(nodeO)) { // nodeO is a boundary node, split takes place
-								DLNode<Coordinate> on = coordNodeMap.get(nodeO);
-							// check if a tri-corner
-								if(on == en.getNext()) {// trim en
-									HullEdgeCir ee = nodeEdgeMap.get(en);
-									edgeIdx.remove(ee); // se popped out already
-									coordNodeMap.remove(nodeE);
-									nodeEdgeMap.remove(en);
-									nodeEdgeMap.remove(sn);
-									hull.remove(en); // sn now connected to on
-									//
-									HullEdgeCir seNew = new HullEdgeCir(sn);
-									nodeEdgeMap.put(sn, seNew);
-									edgeIdx.add(seNew);
-									if(keepLineSeg) {
-										Coordinate[] lsCoords = new Coordinate[2];
-										lsCoords[0] = nodeE;
-										lsCoords[1] = nodeO;
-										rltLS.add(gf.createLineString(lsCoords));
-									}
-								}else if(on == sn.getPrev() ) { // trim sn
-									HullEdgeCir oe = nodeEdgeMap.get(on);
-									edgeIdx.remove(oe); // se popped out already
-									coordNodeMap.remove(nodeS);
-									nodeEdgeMap.remove(sn);
-									nodeEdgeMap.remove(on);
-									hull.remove(sn); //on now connected to en
-									//
-									HullEdgeCir oeNew = new HullEdgeCir(on);
-									nodeEdgeMap.put(on, oeNew);
-									edgeIdx.add(oeNew);
-									if(keepLineSeg) {
-										Coordinate[] lsCoords = new Coordinate[2];
-										lsCoords[0] = nodeO;
-										lsCoords[1] = nodeS;
-										rltLS.add(gf.createLineString(lsCoords));
-									}
-								}else {// split
-									if(allowMultiParts) {
+								if(allowMultiParts) {
+									DLNode<Coordinate> on = coordNodeMap.get(nodeO);
+									// check if a tri-corner
+									if(on == en.getNext()) {// trim en
+										HullEdgeCir ee = nodeEdgeMap.get(en);
+										edgeIdx.remove(ee); // se popped out already
+										coordNodeMap.remove(nodeE);
+										nodeEdgeMap.remove(en);
+										nodeEdgeMap.remove(sn);
+										hull.remove(en); // sn now connected to on
+										//
+										HullEdgeCir seNew = new HullEdgeCir(sn);
+										nodeEdgeMap.put(sn, seNew);
+										edgeIdx.add(seNew);
+										if(keepLineSeg) {
+											Coordinate[] lsCoords = new Coordinate[2];
+											lsCoords[0] = nodeE;
+											lsCoords[1] = nodeO;
+											rltLS.add(gf.createLineString(lsCoords));
+										}
+										rltPt.add(gf.createPoint(en.getObj()));
+									}else if(on == sn.getPrev() ) { // trim sn
+										HullEdgeCir oe = nodeEdgeMap.get(on);
+										edgeIdx.remove(oe); // se popped out already
+										coordNodeMap.remove(nodeS);
+										nodeEdgeMap.remove(sn);
+										nodeEdgeMap.remove(on);
+										hull.remove(sn); //on now connected to en
+										//
+										HullEdgeCir oeNew = new HullEdgeCir(on);
+										nodeEdgeMap.put(on, oeNew);
+										edgeIdx.add(oeNew);
+										if(keepLineSeg) {
+											Coordinate[] lsCoords = new Coordinate[2];
+											lsCoords[0] = nodeO;
+											lsCoords[1] = nodeS;
+											rltLS.add(gf.createLineString(lsCoords));
+										}
+										rltPt.add(gf.createPoint(sn.getObj()));
+									}else {// split
 										addHull = false;
 										// split
 										DLCirList hull2 = hull.split(sn, en, on);
@@ -450,6 +460,8 @@ public class ConcaveHull {
 										//
 										break;
 									}
+								}else {// multiparts not allowed
+									// don't do anything
 								}
 							//	
 							}else { // normal digging
@@ -482,7 +494,7 @@ public class ConcaveHull {
 				nodeEdgeMap.clear();
 				edgeIdx.clear(); 
 			}
-			Vector<Geometry> rtn = new Vector<Geometry>(hulls.size()+rltLS.size());
+			Vector<Geometry> rtn = new Vector<Geometry>(hulls.size()+rltLS.size() +rltPt.size());
 			for(DLCirList<Coordinate> h:rltHulls) {
 				Coordinate[] coords = new Coordinate[h.size() + 1];
 				int cnt = 0;
@@ -497,13 +509,13 @@ public class ConcaveHull {
 				rtn.add(geom);
 			}
 			rtn.addAll(rltLS);
+			rtn.addAll(rltPt);
 			//
 			return rtn;
 		}else {
 			return null;
 		}
-	}
-	//
+	}	//
 	/** Experimental Concave hull construction with an extra metric to control the order of boundary edge "digging"  
 	 * @param triChecker
 	 * @param m TriangleMetric for controlling the order of digging (default is the length of the boundary edge)
