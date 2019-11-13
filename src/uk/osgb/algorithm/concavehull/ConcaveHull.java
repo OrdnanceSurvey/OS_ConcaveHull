@@ -81,10 +81,6 @@ import org.locationtech.jts.triangulate.quadedge.QuadEdge;
 import org.locationtech.jts.triangulate.quadedge.QuadEdgeSubdivision;
 import org.locationtech.jts.triangulate.quadedge.Vertex;
 
-import uk.osgb.algorithm.concavehull.ConcaveHullJTS.HullEdgeCir;
-import uk.osgb.datastructures.DLCirList;
-import uk.osgb.datastructures.DLNode;
-
 import org.locationtech.jts.operation.union.UnaryUnionOp;
 
 public class ConcaveHull {
@@ -92,6 +88,7 @@ public class ConcaveHull {
 	LinkedList<Coordinate> hullDT = null; //initial hull of the dataset (closed, first==last), built from JTS DT. It is normally (but not always) the convex hull (due to JTS DT's use of a bounding super triangle)
 	QuadEdgeSubdivision sd = null;
 	GeometryFactory gf = null;
+	Geometry convexHull = null;
 	//
 	/** constructor that takes a JTS geometry as input
 	 * @param geom 
@@ -163,6 +160,7 @@ public class ConcaveHull {
 	private void init(Collection<Coordinate> coordCol, Coordinate[] coordArray) {
 		ConvexHull ch = new ConvexHull(coordArray, gf);
 		Geometry chGeom = ch.getConvexHull();
+		convexHull = chGeom;
 		coordArray = null;
 		hullCoord = chGeom.getCoordinate();
 		DelaunayTriangulationBuilder builder = new DelaunayTriangulationBuilder();
@@ -296,8 +294,8 @@ public class ConcaveHull {
 			nodeEdgeMap.put(node, e);
 			node = node.getNext();
 		}while(node!=hullCL.getNode());
-
 	}
+	
 	private void generateHullIndices(DLCirList<Coordinate> hullCL, TriangleMetric m, Map<Coordinate, DLNode<Coordinate>> coordNodeMap, Set<HullEdgeCir> edgeIdx, Map<DLNode<Coordinate>, HullEdgeCir> nodeEdgeMap) {
 		DLNode<Coordinate> node = hullCL.getNode();
 		do {
@@ -701,7 +699,14 @@ public class ConcaveHull {
 				holeCol.add(hole);
 			}
 		}
-		shell = shell.difference(UnaryUnionOp.union(holeCol));
+		try {
+			Geometry holes = UnaryUnionOp.union(holeCol);
+			if(holes!=null && holes.getDimension() > 1) {
+				shell = shell.difference(holes);
+			}
+		}catch(Exception e) {
+			e.printStackTrace();
+		}
 		return shell;
 	}
 	//
