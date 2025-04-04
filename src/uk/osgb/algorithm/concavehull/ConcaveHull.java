@@ -2,7 +2,7 @@
  * 
  * Currently three criteria are provided:
  * 
- * Alpha shape in Edelsbrunner, Herbert; Kirkpatrick, David G.; Seidel, Raimund (1983), "On the shape of a set of points in the plane", IEEE Transactions on Information Theory, 29 (4): 551–559, doi:10.1109/TIT.1983.1056714 
+ * Alpha shape in Edelsbrunner, Herbert; Kirkpatrick, David G.; Seidel, Raimund (1983), "On the shape of a set of points in the plane", IEEE Transactions on Information Theory, 29 (4): 551â€“559, doi:10.1109/TIT.1983.1056714 
  * 
  * Chi criterion in Matt Duckham et al 2008 Efficient generation of simple polygons for characterizing the shape of a set of points in the plane
  * 
@@ -1052,7 +1052,7 @@ public class ConcaveHull {
 		TriCheckerChi checkerChi = new TriCheckerChi(50);
 		//
 		System.out.println("\nInitialising hull generator...");
-		ConcaveHullJTS cah = new ConcaveHullJTS(geomCol, 25.0);
+		ConcaveHull cah = new ConcaveHull(geomCol, 25.0);
 		//
 		Collection<Geometry> hulls = null;
 		Geometry h = null;
